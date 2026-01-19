@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="bn">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examiner Portal - Pro Editor</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            background: #f0f2f5;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 20px;
+        }
+
+        .main-card {
+            max-width: 1300px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .auth-box {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            text-align: right;
+        }
+
+        #userStatus {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #0d47a1;
+        }
+
+        .header-bar {
+            background: #0d47a1;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .meta-val {
+            color: #ffeb3b;
+            font-weight: bold;
+            margin-left: 5px;
+            margin-right: 15px;
+        }
+
+        .sub-header {
+            background: #eceff1;
+            color: #37474f;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 25px 0 15px 0;
+            border-left: 5px solid #0d47a1;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .data-card {
+            background: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #546e7a;
+            font-size: 0.85rem;
+            display: block;
+        }
+
+        .info-value {
+            color: #263238;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        /* Edit Style */
+        .edit-input {
+            width: 100%;
+            padding: 4px 8px;
+            border: 1px solid #0d47a1;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            background: #f9faff;
+        }
+
+        .table-edit-input {
+            width: 70px;
+            padding: 2px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+
+        .date-edit-input {
+            width: 130px;
+            padding: 2px;
+            border: 1px solid #ccc;
+        }
+
+        .table-assessment th {
+            background: #455a64;
+            color: white;
+            text-align: center;
+        }
+
+        .table-assessment td {
+            vertical-align: middle;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .whatsapp-btn {
+            color: #25d366;
+            font-size: 1.1rem;
+            margin-left: 8px;
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="main-card">
+        <div class="auth-box">
+            <span id="userStatus">Checking...</span><br>
+            <button id="logoutBtn" class="btn btn-sm btn-outline-danger mt-1">Logout</button>
+        </div>
+
+        <div class="text-center mb-4">
+            <h3 class="text-primary">Examiner Portal</h3>
+            <div class="input-group" style="max-width: 500px; margin: 20px auto;">
+                <input type="text" id="userInput" class="form-control" placeholder="টি-পিন বা মোবাইল নম্বর...">
+                <button class="btn btn-primary px-4" onclick="searchInFirestore()"><i class="fa fa-search"></i></button>
+            </div>
+            <div id="loader" class="loader">
+                <div class="spinner-border text-primary"></div>
+            </div>
+        </div>
+
+        <div id="resultArea" style="display:none;">
+            <div class="header-bar">
+                <p class="m-0 fw-bold">Quick Info</p>
+                <div>T-Pin: <span id="h_tpin" class="meta-val"></span> RM: <span id="h_rm" class="meta-val"></span>
+                </div>
+            </div>
+
+            <div class="sub-header">Basic Information</div>
+            <div id="basicGrid" class="info-grid"></div>
+
+            <div class="sub-header">Assessments Report</div>
+            <div class="table-responsive">
+                <table class="table table-bordered table-assessment">
+                    <thead>
+                        <tr>
+                            <th>Subjects</th>
+                            <th>Score (%)</th>
+                            <th>Set</th>
+                            <th>Exam Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assessmentBody"></tbody>
+                </table>
+            </div>
+
+            <div class="sub-header">Personal Information</div>
+            <div id="personalGrid" class="info-grid"></div>
+
+            <div id="actionArea" class="text-center mt-4 pb-4"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs, or, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqskb3ss5Mol6OApEagALaouW5eMnsSww",
+            authDomain: "zakir-new-project.firebaseapp.com",
+            projectId: "zakir-new-project",
+            storageBucket: "zakir-new-project.firebasestorage.app",
+            messagingSenderId: "362160073239",
+            appId: "1:362160073239:web:8a9c972e9b3a1fb7c4ca52"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const editors = ["admin@gmail.com", "zakir@gmail.com"];
+
+        let currentData = null;
+        let currentDocId = null;
+
+        onAuthStateChanged(auth, (user) => {
+            if (!user) window.location.href = "login.html";
+            else document.getElementById('userStatus').innerText = user.email;
+        });
+
+        document.getElementById('logoutBtn').onclick = async () => { await signOut(auth); window.location.href = "login.html"; };
+
+        const basicOrder = ["Nick Name", "Mobile Number", "Alternate", "Mobile Banking Number", "Inst.", "Dept.", "HSC Batch"];
+        const personalOrder = ["Father's Name", "Mother's Name", "Religion", "Gender", "Date of Birth", "Home District"];
+
+        const subsMap = [
+            { n: "English", p: "English(%)", s: "English Set", d: "English Exam Date", eng: true },
+            { n: "Bangla", p: "Bangla(%)", s: "Bangla Set", d: "Bangla Exam Date", eng: false },
+            { n: "Physics", p: "Physics(%)", s: "Physics Set", d: "Physics Exam Date", eng: false },
+            { n: "Chemistry", p: "Chemistry(%)", s: "Chemistry Set", d: "Chemistry Exam Date", eng: false },
+            { n: "Math", p: "Math (%)", s: "Math Set", d: "Math Exam Date", eng: false },
+            { n: "Biology", p: "Biology (%)", s: "Biology Set", d: "Biology Exam Date", eng: false },
+            { n: "ICT", p: "ICT(%)", s: "ICT Set", d: "ICT Exam Date", eng: false }
+        ];
+
+        window.searchInFirestore = async function () {
+            let q = document.getElementById('userInput').value.trim().replace(/^0+/, '');
+            if (!q) return;
+            document.getElementById('loader').style.display = 'block';
+
+            const snap = await getDocs(query(collection(db, "Examiner_ID"), or(
+                where("Mobile Number", "==", q), where("Alternate", "==", q), where("T-PIN", "==", q)
+            )));
+
+            document.getElementById('loader').style.display = 'none';
+            if (snap.empty) { alert("Data not found!"); return; }
+
+            snap.forEach(docSnap => {
+                currentData = docSnap.data();
+                currentDocId = docSnap.id;
+                renderAll(false); // Initial static view
+            });
+        };
+
+        function renderAll(isEditMode) {
+            document.getElementById('resultArea').style.display = 'block';
+            document.getElementById('h_tpin').innerText = currentData["T-PIN"] || '—';
+            document.getElementById('h_rm').innerText = currentData["Rm"] || '—';
+
+            const bGrid = document.getElementById('basicGrid');
+            const pGrid = document.getElementById('personalGrid');
+            bGrid.innerHTML = ""; pGrid.innerHTML = "";
+
+            basicOrder.forEach(key => bGrid.appendChild(createCard(key, currentData[key], isEditMode)));
+            personalOrder.forEach(key => pGrid.appendChild(createCard(key, currentData[key], isEditMode)));
+
+            renderTable(isEditMode);
+
+            // Action Buttons
+            const user = auth.currentUser;
+            const actionArea = document.getElementById('actionArea');
+            if (user && editors.includes(user.email)) {
+                if (!isEditMode) {
+                    actionArea.innerHTML = `<button class="btn btn-primary px-5" onclick="toggleEdit(true)"><i class="fa fa-edit"></i> Edit Mode</button>`;
+                } else {
+                    actionArea.innerHTML = `
+                        <button class="btn btn-success px-4 me-2" onclick="saveData()"><i class="fa fa-save"></i> Save Changes</button>
+                        <button class="btn btn-secondary px-4" onclick="toggleEdit(false)">Cancel</button>
+                    `;
+                }
+            }
+        }
+
+        function createCard(key, val, isEdit) {
+            val = val || "";
+            const div = document.createElement('div');
+            div.className = "data-card";
+            div.innerHTML = `<span class="info-label">${key}</span>`;
+            if (isEdit) {
+                div.innerHTML += `<input type="text" class="edit-input" data-key="${key}" value="${val}">`;
+            } else {
+                div.innerHTML += `<span class="info-value">${val}</span>`;
+            }
+            return div;
+        }
+
+        function renderTable(isEdit) {
+            let html = "";
+            subsMap.forEach(s => {
+                let score = currentData[s.p] || "";
+                let set = currentData[s.s] || "";
+                let date = currentData[s.d] || "";
+                let passMark = s.eng ? 60 : 50;
+                let status = (score && parseFloat(score) >= passMark) ? { t: "Allow", c: "green" } : { t: "Not Allow", c: "red" };
+                if (!score) status = { t: "No Exam", c: "gray" };
+
+                if (isEdit) {
+                    html += `<tr>
+                        <td>${s.n}</td>
+                        <td><input type="number" class="table-edit-input" data-key="${s.p}" value="${score}"></td>
+                        <td><input type="text" class="table-edit-input" data-key="${s.s}" value="${set}"></td>
+                        <td><input type="text" class="date-edit-input" data-key="${s.d}" value="${date}"></td>
+                        <td style="color:${status.c}">${status.t}</td>
+                    </tr>`;
+                } else {
+                    html += `<tr>
+                        <td>${s.n}</td>
+                        <td>${score ? score + '%' : '—'}</td>
+                        <td>${set || '—'}</td>
+                        <td>${date || '—'}</td>
+                        <td style="color:${status.c}">${status.t}</td>
+                    </tr>`;
+                }
+            });
+            document.getElementById('assessmentBody').innerHTML = html;
+        }
+
+        window.toggleEdit = (mode) => renderAll(mode);
+
+        window.saveData = async () => {
+            const inputs = document.querySelectorAll('.edit-input, .table-edit-input, .date-edit-input');
+            const updateObj = {};
+            inputs.forEach(i => updateObj[i.dataset.key] = i.value);
+
+            try {
+                await setDoc(doc(db, "Examiner_ID", currentDocId), updateObj, { merge: true });
+                alert("Updated Successfully!");
+                // Local data update and refresh
+                Object.assign(currentData, updateObj);
+                renderAll(false);
+            } catch (e) { alert("Update Failed!"); }
+        };
+    </script>
+</body>
+
+</html>
