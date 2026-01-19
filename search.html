@@ -217,11 +217,11 @@
         let currentDocId = null;
 
         onAuthStateChanged(auth, (user) => {
-            if (!user) window.location.href = "login.html";
+            if (!user) window.location.href = "Index.html";
             else document.getElementById('userStatus').innerText = user.email;
         });
 
-        document.getElementById('logoutBtn').onclick = async () => { await signOut(auth); window.location.href = "login.html"; };
+        document.getElementById('logoutBtn').onclick = async () => { await signOut(auth); window.location.href = "Index.html"; };
 
         const basicOrder = ["Nick Name", "Mobile Number", "Alternate", "Mobile Banking Number", "Inst.", "Dept.", "HSC Batch"];
         const personalOrder = ["Father's Name", "Mother's Name", "Religion", "Gender", "Date of Birth", "Home District"];
@@ -345,5 +345,6 @@
         };
     </script>
 </body>
+
 
 </html>
